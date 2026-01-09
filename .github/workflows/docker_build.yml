@@ -39,6 +39,7 @@ jobs:
           context: .
           push: false
           outputs: type=tar,dest=${{ env.TARFILE_NAME }}
+          platforms: linux/amd64,linux/arm64
 
       - name: Upload tarball for use by Trivy job
         uses: actions/upload-artifact@v4
@@ -85,4 +86,5 @@ jobs:
           context: .
           push: true
           tags: ${{ inputs.IMAGE_REFERENCES }}
+          platforms: linux/amd64,linux/arm64
 ...
