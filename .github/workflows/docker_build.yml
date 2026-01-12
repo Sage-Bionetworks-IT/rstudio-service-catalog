@@ -33,6 +33,20 @@ jobs:
       - name: Static Analysis
         uses: pre-commit/action@v3.0.0
 
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "debug": true,
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Check that build works, save for scanning, but don't push yet
         uses: docker/build-push-action@v6.4.0
         with:
