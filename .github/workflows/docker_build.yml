@@ -59,14 +59,14 @@ jobs:
         with:
           context: .
           push: false
-          cache-to: type=local,dest=./output/cache
+          cache-to: type=local,dest=./output/cache/${{ matrix.platform }}
           outputs: type=local,dest=./output/image/${{ matrix.platform }}
 
       - name: Upload image cache for this platform
         uses: actions/upload-artifact@v4
         with:
           name: cache-${{ matrix.platform }}
-          path: ./output/cache
+          path: ./output/cache/${{ matrix.platform }}
 
       - name: Upload image output for this platform
         uses: actions/upload-artifact@v4
