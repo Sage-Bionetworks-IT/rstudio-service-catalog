@@ -49,6 +49,11 @@ jobs:
     outputs:
       tarfile_artifact: ${{ env.TARFILE_NAME }}
 
+    permissions:
+      contents: read
+      deployments: write
+      packages: write
+
   trivy-scan:
     needs: tests
     uses: "./.github/workflows/trivy.yml"
