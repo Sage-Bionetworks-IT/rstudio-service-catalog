@@ -31,7 +31,7 @@ jobs:
           - platform: amd64
             runner: ubuntu-24.04
           - platform: arm64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-24.04-arm  # GitHub-hosted ARM runners are in beta
 
     runs-on: ${{ matrix.runner }}
 
@@ -55,9 +55,9 @@ jobs:
       - name: Upload image output for this platform
         uses: actions/upload-artifact@v4
         with:
-          name: image-${{ matrix.platform }}
+          name: ${{ env.IMAGE_NAME }}.${{ matrix.platform }}.tar
           path: ${{ env.IMAGE_NAME }}.${{ matrix.platform }}.tar
-          retention-days: 1
+          retention-days: 7
 
     # Export environment variable as output to access the value
     # in the 'with' statement below
@@ -120,7 +120,7 @@ jobs:
         with:
           name: ${{ env.TARFILE_NAME }}
           path: ${{ env.TARFILE_NAME }}
-          retention-days: 1
+          retention-days: 7
 
     permissions:
       contents: read
@@ -137,7 +137,7 @@ jobs:
 
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -150,6 +150,8 @@ jobs:
 
       - name: Load, tag, and push multi-platform image
         run: |
+          set -ex
+
           docker load -i ${{ env.TARFILE_NAME }}
 
           for tag in ${{ inputs.IMAGE_REFERENCES }}
@@ -160,8 +162,11 @@ jobs:
             docker push "${tag}-amd64"
             docker push "${tag}-arm64"
 
-            # Create and push multi-platform manifest
-            docker manifest create "${tag}" "${tag}-amd64" "${tag}-arm64"
+            # Create, annotate, and push multi-platform manifest
+            docker manifest create "${tag}" --amend "${tag}-amd64" --amend "${tag}-arm64"
+            docker manifest annotate "${tag}" "${tag}-amd64" --os linux --arch amd64
+            docker manifest annotate "${tag}" "${tag}-arm64" --os linux --arch arm64
+            docker manifest inspect "${tag}"
             docker manifest push "${tag}"
           done
 ...
