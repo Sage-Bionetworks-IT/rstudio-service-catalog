@@ -20,7 +20,7 @@ on:
 
 env:
   TARFILE_NAME: image.tar
-  IMAGE_NAME: test-image
+  IMAGE_NAME: rstudio-test-image
 
 jobs:
   build:
@@ -41,10 +41,16 @@ jobs:
         with:
           ref: ${{ inputs.REF_TO_CHECKOUT }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build platform-specific Docker image
         run: |
-          docker build \
+          docker buildx build \
             --platform linux/${{ matrix.platform }} \
+            --cache-from type=gha,scope=${{ matrix.platform }} \
+            --cache-to type=gha,scope=${{ matrix.platform }},mode=max \
+            --output type=docker \
             -t ${{ env.IMAGE_NAME }}:${{ matrix.platform }} \
             .
 
