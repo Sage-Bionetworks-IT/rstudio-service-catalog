@@ -59,10 +59,10 @@ jobs:
           path: ${{ env.IMAGE_NAME }}.${{ matrix.platform }}.tar
           retention-days: 1
 
+    # Export environment variable as output to access the value
+    # in the 'with' statement below
     outputs:
       image_name: ${{ env.IMAGE_NAME }}
-      tarfile_name: ${{ env.TARFILE_NAME }}
-
 
   trivy-scan-amd64:
     needs: build
@@ -70,7 +70,7 @@ jobs:
     with:
       SOURCE_TYPE: tar
       IMAGE_NAME: ${{ needs.build.outputs.image_name }}:amd64
-      TARFILE_NAME: ${{ needs.build.outputs.tarfile_name }}
+      TARFILE_NAME: ${{ needs.build.outputs.image_name }}.amd64.tar
       EXIT_CODE: 1
     permissions:
       contents: read
@@ -83,7 +83,7 @@ jobs:
     with:
       SOURCE_TYPE: tar
       IMAGE_NAME: ${{ needs.build.outputs.image_name }}:arm64
-      TARFILE_NAME: ${{ needs.build.outputs.tarfile_name }}
+      TARFILE_NAME: ${{ needs.build.outputs.image_name }}.arm64.tar
       EXIT_CODE: 1
     permissions:
       contents: read

@@ -78,7 +78,7 @@ jobs:
     uses: "./.github/workflows/docker_build.yml"
     with:
       REF_TO_CHECKOUT: ${{ needs.bump-tag.outputs.new_tag }}
-      IMAGE_REFERENCES: "${{ needs.get-image-reference.outputs.image_repo }}:${{ needs.bump-tag.outputs.new_version }},\
+      IMAGE_REFERENCES: "${{ needs.get-image-reference.outputs.image_repo }}:${{ needs.bump-tag.outputs.new_version }}\
         ${{ needs.get-image-reference.outputs.image_repo }}:${{ needs.bump-tag.outputs.new_major_minor }}"
     permissions:
       contents: read
