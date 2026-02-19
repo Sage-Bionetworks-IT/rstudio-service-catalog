@@ -19,7 +19,6 @@ on:
         description: "image references, e.g., ghcr.io/sage-bionetworks/rstudio-service-catalog:1.0.1"
 
 env:
-  TARFILE_NAME: image.tar
   IMAGE_NAME: rstudio-test-image
 
 jobs:
@@ -77,6 +76,7 @@ jobs:
       SOURCE_TYPE: tar
       IMAGE_NAME: ${{ needs.build.outputs.image_name }}:amd64
       TARFILE_NAME: ${{ needs.build.outputs.image_name }}.amd64.tar
+      SARIF_ARTIFACT: trivy-results-amd64
       EXIT_CODE: 1
     permissions:
       contents: read
@@ -90,52 +90,17 @@ jobs:
       SOURCE_TYPE: tar
       IMAGE_NAME: ${{ needs.build.outputs.image_name }}:arm64
       TARFILE_NAME: ${{ needs.build.outputs.image_name }}.arm64.tar
+      SARIF_ARTIFACT: trivy-results-arm64
       EXIT_CODE: 1
     permissions:
       contents: read
       deployments: write
       security-events: write
 
-  multi-platform:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Download images
-        uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
-          pattern: image-*
-
-      - name: Build multi-platform image
-        run: |
-          # Exit on error and echo commands
-          set -ex
-
-          # Import platform-specific images
-          docker load -i ${{ env.IMAGE_NAME }}.amd64.tar
-          docker load -i ${{ env.IMAGE_NAME }}.arm64.tar
-
-          # Save both images in a single tarball
-          docker save \
-            ${{ env.IMAGE_NAME }}:amd64 \
-            ${{ env.IMAGE_NAME }}:arm64 \
-            -o ${{ env.TARFILE_NAME }}
-
-      - name: Upload tarball for use by Trivy job
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.TARFILE_NAME }}
-          path: ${{ env.TARFILE_NAME }}
-          retention-days: 7
-
-    permissions:
-      contents: read
-      deployments: write
-      packages: write
 
   push-image:
     if: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
-    needs: [multi-platform, trivy-scan-amd64, trivy-scan-arm64]
+    needs: [build, trivy-scan-amd64, trivy-scan-arm64]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -149,16 +114,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download multi-platform image
+      - name: Download images
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.TARFILE_NAME }}
+          merge-multiple: true
+          pattern: ${{ needs.build.outputs.image_name }}*
 
       - name: Load, tag, and push multi-platform image
         run: |
           set -ex
 
-          docker load -i ${{ env.TARFILE_NAME }}
+          docker load -i ${{ env.IMAGE_NAME }}.amd64.tar
+          docker load -i ${{ env.IMAGE_NAME }}.arm64.tar
 
           for tag in ${{ inputs.IMAGE_REFERENCES }}
           do
