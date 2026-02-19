@@ -19,57 +19,88 @@ on:
         description: "image references, e.g., ghcr.io/sage-bionetworks/rstudio-service-catalog:1.0.1"
 
 env:
-  TARFILE_NAME: image.tar
+  IMAGE_NAME: rstudio-test-image
 
 jobs:
-  tests:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: amd64
+            runner: ubuntu-24.04
+          - platform: arm64
+            runner: ubuntu-24.04-arm  # GitHub-hosted ARM runners are in beta
+
+    runs-on: ${{ matrix.runner }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.REF_TO_CHECKOUT }}
 
-      - name: Static Analysis
-        uses: pre-commit/action@v3.0.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Check that build works, save for scanning, but don't push yet
-        uses: docker/build-push-action@v6.4.0
-        with:
-          context: .
-          push: false
-          outputs: type=tar,dest=${{ env.TARFILE_NAME }}
+      - name: Build platform-specific Docker image
+        run: |
+          docker buildx build \
+            --platform linux/${{ matrix.platform }} \
+            --cache-from type=gha,scope=${{ matrix.platform }} \
+            --cache-to type=gha,scope=${{ matrix.platform }},mode=max \
+            --output type=docker \
+            -t ${{ env.IMAGE_NAME }}:${{ matrix.platform }} \
+            .
 
-      - name: Upload tarball for use by Trivy job
+          docker save \
+            ${{ env.IMAGE_NAME }}:${{ matrix.platform }} \
+            -o ${{ env.IMAGE_NAME }}.${{ matrix.platform }}.tar
+
+      - name: Upload image output for this platform
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.TARFILE_NAME }}
-          path: ${{ env.TARFILE_NAME }}
+          name: ${{ env.IMAGE_NAME }}.${{ matrix.platform }}.tar
+          path: ${{ env.IMAGE_NAME }}.${{ matrix.platform }}.tar
+          retention-days: 7
 
+    # Export environment variable as output to access the value
+    # in the 'with' statement below
     outputs:
-      tarfile_artifact: ${{ env.TARFILE_NAME }}
+      image_name: ${{ env.IMAGE_NAME }}
 
-    permissions:
-      contents: read
-      deployments: write
-      packages: write
-
-  trivy-scan:
-    needs: tests
+  trivy-scan-amd64:
+    needs: build
     uses: "./.github/workflows/trivy.yml"
     with:
       SOURCE_TYPE: tar
-      IMAGE_NAME: image-name
-      TARFILE_NAME: ${{ needs.tests.outputs.tarfile_artifact }}
+      IMAGE_NAME: ${{ needs.build.outputs.image_name }}:amd64
+      TARFILE_NAME: ${{ needs.build.outputs.image_name }}.amd64.tar
+      SARIF_ARTIFACT: trivy-results-amd64
       EXIT_CODE: 1
     permissions:
       contents: read
       deployments: write
       security-events: write
 
+  trivy-scan-arm64:
+    needs: build
+    uses: "./.github/workflows/trivy.yml"
+    with:
+      SOURCE_TYPE: tar
+      IMAGE_NAME: ${{ needs.build.outputs.image_name }}:arm64
+      TARFILE_NAME: ${{ needs.build.outputs.image_name }}.arm64.tar
+      SARIF_ARTIFACT: trivy-results-arm64
+      EXIT_CODE: 1
+    permissions:
+      contents: read
+      deployments: write
+      security-events: write
+
+
   push-image:
     if: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
-    needs: [tests, trivy-scan]
+    needs: [build, trivy-scan-amd64, trivy-scan-arm64]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -77,21 +108,38 @@ jobs:
 
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Download images
+        uses: actions/download-artifact@v4
         with:
-          ref: ${{ inputs.REF_TO_CHECKOUT }}
+          merge-multiple: true
+          pattern: ${{ needs.build.outputs.image_name }}*
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6.4.0
-        with:
-          context: .
-          push: true
-          tags: ${{ inputs.IMAGE_REFERENCES }}
+      - name: Load, tag, and push multi-platform image
+        run: |
+          set -ex
+
+          docker load -i ${{ env.IMAGE_NAME }}.amd64.tar
+          docker load -i ${{ env.IMAGE_NAME }}.arm64.tar
+
+          for tag in ${{ inputs.IMAGE_REFERENCES }}
+          do
+            # Tag and push platform-specific images
+            docker tag ${{ env.IMAGE_NAME }}:amd64 "${tag}-amd64"
+            docker tag ${{ env.IMAGE_NAME }}:arm64 "${tag}-arm64"
+            docker push "${tag}-amd64"
+            docker push "${tag}-arm64"
+
+            # Create, annotate, and push multi-platform manifest
+            docker manifest create "${tag}" --amend "${tag}-amd64" --amend "${tag}-arm64"
+            docker manifest annotate "${tag}" "${tag}-amd64" --os linux --arch amd64
+            docker manifest annotate "${tag}" "${tag}-arm64" --os linux --arch arm64
+            docker manifest inspect "${tag}"
+            docker manifest push "${tag}"
+          done
 ...
