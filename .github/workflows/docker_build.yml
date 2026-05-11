@@ -16,7 +16,7 @@ on:
       IMAGE_REFERENCES:
         required: true
         type: string
-        description: "image references, e.g., ghcr.io/sage-bionetworks/rstudio-service-catalog:1.0.1"
+        description: "whitespace-separated image references, e.g., ghcr.io/sage-bionetworks/rstudio-service-catalog:1.0.1"
 
 env:
   IMAGE_NAME: rstudio-test-image
@@ -127,7 +127,7 @@ jobs:
           docker load -i ${{ env.IMAGE_NAME }}.amd64.tar
           docker load -i ${{ env.IMAGE_NAME }}.arm64.tar
 
-          for tag in ${{ inputs.IMAGE_REFERENCES }}
+          for tag in $(printf '%s' "${{ inputs.IMAGE_REFERENCES }}" | tr '\n' ' ')
           do
             # Tag and push platform-specific images
             docker tag ${{ env.IMAGE_NAME }}:amd64 "${tag}-amd64"
