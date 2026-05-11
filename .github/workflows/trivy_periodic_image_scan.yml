@@ -22,7 +22,7 @@ jobs:
           echo "repo_name=$repo_name" >> $GITHUB_ENV
       - name: Find current version
         id: find_version
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@a22cf08638b34d5badda920f9daf6e72c477b07b # v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           dry_run: true  # setting to 'true' means no new version is created
@@ -55,12 +55,12 @@ jobs:
     steps:
       - name: Bump version and push tag
         id: tag_version
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@a22cf08638b34d5badda920f9daf6e72c477b07b # v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: parse new version
         id: parsed
-        uses: booxmedialtd/ws-action-parse-semver@v1
+        uses: booxmedialtd/ws-action-parse-semver@7784200024d6b3fc01253e617ec0168daf603de3 # v1.4.7
         with:
           input_string: ${{ steps.tag_version.outputs.new_version }}
     outputs:

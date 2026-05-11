@@ -2,13 +2,13 @@ ci:
   autoupdate_schedule: monthly
 repos:
   - repo: https://github.com/awslabs/git-secrets
-    rev: b9e96b3212fa06aea65964ff0d5cda84ce935f38
+    rev: ad82d68ee924906a0401dfd48de5057731a9bc84  # v1.3.0
     hooks:
       - id: git-secrets
         entry: git-secrets
         args: [--scan, --recursive]
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # v6.0.0
     hooks:
       # On Windows, git will convert all CRLF to LF,
       # but only after all hooks are done executing.
@@ -22,19 +22,19 @@ repos:
       - id: check-json
       - id: check-ast
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.38.0
+    rev: cba56bcde1fdd01c1deb3f945e69764c291a6530  # v1.38.0
     hooks:
       - id: yamllint
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.5.6
+    rev: ad1b27d73581aa16cca06fc4a0761fc563ffe8e8  # v1.5.6
     hooks:
       - id: remove-tabs
   - repo: https://github.com/sirosen/check-jsonschema
-    rev: 0.36.2
+    rev: 5030dca3047414c338091455ac41803200ec1f0f  # 0.37.3
     hooks:
       - id: check-github-workflows
       - id: check-github-actions
   - repo: https://github.com/pryorda/dockerfilelint-precommit-hooks
-    rev: v0.1.0
+    rev: 1880d3752044754d2b88f3aa32e44620e02092fe  # v0.1.0
     hooks:
       - id: dockerfilelint
