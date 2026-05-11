@@ -62,15 +62,17 @@ jobs:
           path: /tmp
 
       - name: load docker image from tar file
+        id: docker-load
         if: ${{ inputs.SOURCE_TYPE == 'tar' }}
         run: |
-          docker load -i ${{ steps.tar-download.outputs.download-path }}/${{ inputs.TARFILE_NAME }}
+          IMAGE_REF=$(docker load -i ${{ steps.tar-download.outputs.download-path }}/${{ inputs.TARFILE_NAME }} | awk '/Loaded image:/ {print $3}' | tail -n 1)
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scanner for any major issues
         uses: aquasecurity/trivy-action@0.34.0
         id: trivy
         with:
-          image-ref: ${{ inputs.IMAGE_NAME }}
+          image-ref: ${{ inputs.SOURCE_TYPE == 'tar' && steps.docker-load.outputs.image_ref || inputs.IMAGE_NAME }}
           ignore-unfixed: true  # skip vul'ns for which there is no fix
           # list directories to skip, each with a justification:
           # files in webfakes have fake credentials
