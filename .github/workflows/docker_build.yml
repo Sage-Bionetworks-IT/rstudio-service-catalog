@@ -77,6 +77,7 @@ jobs:
       IMAGE_NAME: ${{ needs.build.outputs.image_name }}:amd64
       TARFILE_NAME: ${{ needs.build.outputs.image_name }}.amd64.tar
       SARIF_ARTIFACT: trivy-results-amd64
+      CATEGORY: trivy-amd64
       EXIT_CODE: 1
     permissions:
       contents: read
@@ -91,6 +92,7 @@ jobs:
       IMAGE_NAME: ${{ needs.build.outputs.image_name }}:arm64
       TARFILE_NAME: ${{ needs.build.outputs.image_name }}.arm64.tar
       SARIF_ARTIFACT: trivy-results-arm64
+      CATEGORY: trivy-arm64
       EXIT_CODE: 1
     permissions:
       contents: read
@@ -136,7 +138,7 @@ jobs:
             docker push "${tag}-arm64"
 
             # Create, annotate, and push multi-platform manifest
-            docker manifest create "${tag}" --amend "${tag}-amd64" --amend "${tag}-arm64"
+            docker manifest create "${tag}" "${tag}-amd64" "${tag}-arm64" --amend
             docker manifest annotate "${tag}" "${tag}-amd64" --os linux --arch amd64
             docker manifest annotate "${tag}" "${tag}-arm64" --os linux --arch arm64
             docker manifest inspect "${tag}"

@@ -18,13 +18,24 @@ on:
         required: false
         type: string
       IMAGE_NAME:
+        # only used as the scan target when SOURCE_TYPE=='image'; for 'tar', the image
+        # reference parsed from `docker load`'s output is used instead (see the
+        # 'load docker image from tar file' step below)
         required: true
         type: string
       SARIF_ARTIFACT:
         required: false
         type: string
         default: trivy-results
-      EXIT_CODE:  # return code for failed scan. 0 means OK.  Non-zero will fail the build when there are findings.
+      CATEGORY:
+        # distinguishes this scan's SARIF upload from others for the same ref (e.g. one
+        # per architecture) — without it, GitHub Code Scanning treats same-category
+        # uploads for the same ref as superseding each other and only the last one wins
+        required: false
+        type: string
+        default: ""
+      EXIT_CODE:
+        # return code for failed scan. 0 means OK.  Non-zero will fail the build when there are findings.
         required: false
         type: number
         default: 0
@@ -65,7 +76,11 @@ jobs:
         id: docker-load
         if: ${{ inputs.SOURCE_TYPE == 'tar' }}
         run: |
-          IMAGE_REF=$(docker load -i ${{ steps.tar-download.outputs.download-path }}/${{ inputs.TARFILE_NAME }} | awk '/Loaded image:/ {print $3}' | tail -n 1)
+          IMAGE_REF=$(docker load -i "${{ steps.tar-download.outputs.download-path }}/${{ inputs.TARFILE_NAME }}" | awk '/Loaded image:/ {print $3}' | tail -n 1)
+          if [ -z "$IMAGE_REF" ]; then
+            echo "ERROR: Could not parse an image reference from 'docker load' output" >&2
+            exit 1
+          fi
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scanner for any major issues
@@ -108,6 +123,7 @@ jobs:
         if: ${{ success() || steps.trivy.conclusion=='failure' }}
         with:
           sarif_file: ${{ env.sarif_file_name  }}
+          category: ${{ inputs.CATEGORY }}
           wait-for-processing: true
 
       # This step captures the Sarif file so we can validate what
