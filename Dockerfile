@@ -1,27 +1,31 @@
 FROM rocker/rstudio:4.5.1
+# NOTE: synapser 2.x is untested on R >4.4.2
+# but the rstudio docker images only support 4.5 and 4.6
 
 # no login required
 ENV DISABLE_AUTH=true
 
 RUN apt-get -y update && \
 apt-get -y upgrade && \
-apt-get -y install libpng-dev \
-linux-libc-dev \
+apt-get -y install \
 libcurl4-openssl-dev \
-libxml2-dev \
 libfontconfig1-dev \
-libgit2-dev \
-libfontconfig1-dev \
-libfribidi-dev \
 libfreetype6-dev \
-libpng-dev \
-libtiff5-dev \
-libjpeg-dev \
+libfribidi-dev \
+libgit2-dev \
 libharfbuzz-dev \
+libjpeg-dev \
+libncurses-dev \
+libpng-dev \
+libreadline-dev \
+libsqlite3-dev \
+libtiff5-dev \
+libuv1-dev \
+libxml2-dev \
+linux-libc-dev \
 python3 \
 python3-pip \
 python3-venv \
-python3-boto3 \
 python-is-python3 && \
 apt-get clean
 
@@ -37,12 +41,15 @@ RUN Rscript --no-save install_packages_or_fail.R tidyverse devtools BiocManager 
 # install BioConductor (v. 3.22 is for R version 4.5)
 RUN Rscript -e 'BiocManager::install(version = "3.22")'
 
-RUN Rscript -e "reticulate::install_python(version = '3.10.11')"
-RUN Rscript -e "reticulate::virtualenv_create(envname='r-reticulate',version = '3.10.11')"
+# synapser requires Python <=3.11
+RUN Rscript -e "reticulate::install_python(version = '3.11.10')"
+RUN Rscript -e "reticulate::virtualenv_create(envname='r-reticulate',version = '3.11.10')"
 RUN Rscript -e "reticulate::use_virtualenv('r-reticulate')"
 
 # Install synapser and, by extension, the synapse Python client
 RUN Rscript --no-save install_packages_or_fail.R synapser
+# Update synapse Python client to the latest version to pull in security updates
+RUN Rscript -e "reticulate::virtualenv_install('r-reticulate', 'synapseclient')"
 
 # Install Python package boto3, which will be used by the synapse Python client
 RUN R -e "reticulate::virtualenv_install(reticulate::virtualenv_list()[1], 'boto3')"
